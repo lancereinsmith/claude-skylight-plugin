@@ -27,6 +27,16 @@ exchanges the result for a bearer token.
 
 ## Install (Claude Code)
 
+### From the marketplace (recommended)
+
+    claude plugin marketplace add lancereinsmith/claude-marketplace
+    claude plugin install skylight@lancereinsmith
+
+Then set `SKYLIGHT_EMAIL` and `SKYLIGHT_PASSWORD` in your environment (e.g. your
+shell profile) so the MCP server can log in.
+
+### Direct MCP server install
+
     claude mcp add skylight -e SKYLIGHT_EMAIL=you@example.com -e SKYLIGHT_PASSWORD=... \
       -- uvx --from git+https://github.com/lancereinsmith/claude-skylight-plugin claude-skylight-plugin
 
