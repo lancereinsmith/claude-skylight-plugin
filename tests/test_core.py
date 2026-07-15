@@ -1,6 +1,7 @@
 """Tests for skylight_core.SkylightClient (all HTTP mocked with respx)."""
 
 import base64
+import json as jsonlib
 
 import httpx
 import pytest
@@ -221,3 +222,78 @@ def test_list_events_defaults_to_next_seven_days():
     today = datetime.now(client.tz).date()
     assert params["date_min"] == today.isoformat()
     assert params["date_max"] == (today + timedelta(days=7)).isoformat()
+
+
+def created_event_response():
+    return httpx.Response(
+        200,
+        json={
+            "data": {
+                "id": "999",
+                "type": "calendar_event",
+                "attributes": {
+                    "summary": "Dentist",
+                    "starts_at": "2026-07-20 17:00:00-05:00",
+                    "ends_at": "2026-07-20 18:00:00-05:00",
+                    "all_day": False,
+                    "status": "approved",
+                    "source": "skylight",
+                },
+                "relationships": {"category": {"data": {"id": "111", "type": "category"}}},
+            },
+            "included": [
+                {"id": "111", "type": "category",
+                 "attributes": {"id": 111, "label": "Lance", "color": "#CB434C"}},
+            ],
+        },
+    )
+
+
+@respx.mock
+def test_create_event_converts_naive_local_to_utc():
+    login_route()
+    route = respx.post(f"{BASE}/api/frames/42/calendar_events").mock(
+        return_value=created_event_response()
+    )
+    client = core.SkylightClient()
+    ev = client.create_event(
+        "Dentist", "2026-07-20T17:00", category_ids=["111"], location="123 Main St"
+    )
+    body = jsonlib.loads(route.calls.last.request.content)
+    # July in America/Chicago is UTC-5
+    assert body["starts_at"] == "2026-07-20 22:00:00+00:00"
+    assert body["ends_at"] == "2026-07-20 23:00:00+00:00"  # default: start + 1h
+    assert body["summary"] == "Dentist"
+    assert body["timezone"] == "America/Chicago"
+    assert body["category_ids"] == ["111"]
+    assert body["location"] == "123 Main St"
+    assert body["all_day"] is False
+    assert body["kind"] == "standard"
+    assert body["rrule"] is None
+    assert ev["id"] == "999"
+    assert ev["categories"] == ["Lance"]
+
+
+@respx.mock
+def test_create_event_all_day_and_rrule():
+    login_route()
+    route = respx.post(f"{BASE}/api/frames/42/calendar_events").mock(
+        return_value=created_event_response()
+    )
+    client = core.SkylightClient()
+    client.create_event(
+        "Trash day", "2026-07-21", all_day=True, rrule="RRULE:FREQ=WEEKLY;BYDAY=TU"
+    )
+    body = jsonlib.loads(route.calls.last.request.content)
+    assert body["all_day"] is True
+    assert body["starts_at"].startswith("2026-07-21")
+    assert body["ends_at"].startswith("2026-07-21")
+    assert body["rrule"] == "RRULE:FREQ=WEEKLY;BYDAY=TU"
+
+
+@respx.mock
+def test_create_event_rejects_bad_datetime():
+    login_route()
+    client = core.SkylightClient()
+    with pytest.raises(core.SkylightError, match="Could not parse"):
+        client.create_event("Bad", "next tuesday-ish")
