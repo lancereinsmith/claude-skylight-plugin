@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "claude-skylight-plugin"
-version = "0.1.0"
+version = "0.2.0"
 description = "Skylight Calendar events skill for Claude Code and Claude Desktop (MCP)"
 license = "MIT"
 readme = "README.md"
