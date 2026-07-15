@@ -84,13 +84,13 @@ Base URL: `https://app.ourskylight.com`
     "summary": "...", "description": "...", "location": "",
     "starts_at": "2025-12-29 19:00:00+00:00", "ends_at": "2025-12-29 20:00:00+00:00",
     "timezone": "America/Chicago", "all_day": false,
-    "category_ids": ["13600771"], "rrule": null, "kind": "standard",
+    "category_ids": ["13600771"], "rrule": ["RRULE:FREQ=WEEKLY;BYDAY=TU"], "kind": "standard",
     "invited_emails": [], "countdown_enabled": false
   }
   ```
+  `rrule` must be an array of RRULE strings (a bare string is rejected with 422).
   `calendar_account_id`/`calendar_id` are optional (used when writing through a
-  linked Google account); omit for native Skylight events — verify against real
-  traffic during implementation.
+  linked Google account). Verified live 2026-07-15: omitting them creates a native event (`source: "skylight"`); all-day, recurring, and category-assigned creates all confirmed.
 - **Categories** — `GET /api/frames/{frame_id}/categories` → id, `label`,
   `color`, `linked_to_profile`.
 
@@ -134,10 +134,7 @@ Environment variables (same pattern as qgenda plugin):
 
 - **Unofficial API** — may change or be blocked without notice. Mitigation: thin
   client, vendored OpenAPI spec for re-derivation, clear error surfacing.
-- **Create-payload uncertainty** — the spec's create example writes through a
-  linked Google calendar account. Whether a bare native event needs
-  `calendar_account_id` must be confirmed with real traffic early in
-  implementation (Task 1 of the plan).
+- **Create-payload uncertainty** — Resolved — verified live 2026-07-15 (timed, all-day, recurring, category-assigned creates all succeed; rrule must be an array).
 - **Auth flow** — verified live 2026-07-15 against the real API. Access
   tokens expire after `expires_in` (observed 604800s = 7 days). A refresh
   token is issued alongside it, but refresh-token rotation is unused for

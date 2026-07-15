@@ -92,7 +92,7 @@ def _parse_when(value: str, tz: ZoneInfo) -> datetime:
 
 
 def _utc_str(dt: datetime) -> str:
-    return str(dt.astimezone(timezone.utc))
+    return str(dt.astimezone(timezone.utc).replace(microsecond=0))
 
 
 def _env(name: str) -> str:
@@ -274,10 +274,15 @@ class SkylightClient:
         }
 
     def _request(self, method: str, path: str, **kwargs) -> dict:
-        resp = self._http.request(method, path, headers=self._auth_header(), **kwargs)
+        extra_headers = kwargs.pop("headers", {})
+        resp = self._http.request(
+            method, path, headers={**self._auth_header(), **extra_headers}, **kwargs
+        )
         if resp.status_code == 401:
             self.login()
-            resp = self._http.request(method, path, headers=self._auth_header(), **kwargs)
+            resp = self._http.request(
+                method, path, headers={**self._auth_header(), **extra_headers}, **kwargs
+            )
         if resp.status_code >= 400:
             raise SkylightError(
                 f"{method} {path} failed ({resp.status_code}): {resp.text[:300]}"
@@ -343,7 +348,7 @@ class SkylightClient:
         description: str = "",
         location: str = "",
         category_ids: list[str] | None = None,
-        rrule: str | None = None,
+        rrule: str | list[str] | None = None,
     ) -> dict:
         start = _parse_when(starts_at, self.tz)
         if ends_at:
@@ -352,6 +357,8 @@ class SkylightClient:
             end = start
         else:
             end = start + timedelta(hours=1)
+        if isinstance(rrule, str):
+            rrule = [rrule]
         body = {
             "summary": summary,
             "description": description,
@@ -361,7 +368,7 @@ class SkylightClient:
             "timezone": str(self.tz),
             "all_day": all_day,
             "category_ids": category_ids or [],
-            "rrule": rrule,
+            "rrule": rrule or None,
             "kind": "standard",
             "invited_emails": [],
             "countdown_enabled": False,

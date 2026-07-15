@@ -237,6 +237,7 @@ def test_list_events_parses_and_resolves_categories():
     assert params["date_min"] == "2026-07-20"
     assert params["date_max"] == "2026-07-27"
     assert params["timezone"] == "America/Chicago"
+    assert params["include"] == "categories"
     assert len(events) == 1
     ev = events[0]
     assert ev["summary"] == "Soccer practice"
@@ -294,7 +295,7 @@ def test_create_event_converts_naive_local_to_utc():
     )
     client = core.SkylightClient()
     ev = client.create_event(
-        "Dentist", "2026-07-20T17:00", category_ids=["111"], location="123 Main St"
+        "Dentist", "2026-07-20T17:00:00.5", category_ids=["111"], location="123 Main St"
     )
     body = jsonlib.loads(route.calls.last.request.content)
     # July in America/Chicago is UTC-5
@@ -325,7 +326,7 @@ def test_create_event_all_day_and_rrule():
     assert body["all_day"] is True
     assert body["starts_at"].startswith("2026-07-21")
     assert body["ends_at"].startswith("2026-07-21")
-    assert body["rrule"] == "RRULE:FREQ=WEEKLY;BYDAY=TU"
+    assert body["rrule"] == ["RRULE:FREQ=WEEKLY;BYDAY=TU"]
 
 
 @respx.mock

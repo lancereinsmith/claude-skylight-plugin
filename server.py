@@ -52,7 +52,7 @@ def create_event(
         description: Optional details.
         location: Optional location text.
         category_ids: Category (family member) IDs from get_categories.
-        rrule: Optional recurrence rule, e.g. "RRULE:FREQ=WEEKLY;BYDAY=TU".
+        rrule: Optional recurrence rule, e.g. "RRULE:FREQ=WEEKLY;BYDAY=TU" (sent to the API as a one-element list).
     """
     try:
         return json.dumps(_get_client().create_event(
