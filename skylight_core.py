@@ -80,3 +80,31 @@ class SkylightClient:
                 f"{method} {path} failed ({resp.status_code}): {resp.text[:300]}"
             )
         return resp.json()
+
+    # -- frame + categories ----------------------------------------------
+
+    @property
+    def frame_id(self) -> str:
+        if self._frame_id:
+            return self._frame_id
+        try:
+            frames = self._request("GET", "/api/frames")["data"]
+            self._frame_id = frames[0]["id"]
+        except (SkylightError, KeyError, IndexError) as exc:
+            raise SkylightError(
+                "Could not auto-discover your frame ID. Set SKYLIGHT_FRAME_ID: "
+                "log in at https://app.ourskylight.com and copy the number from "
+                f"the URL (e.g. /frames/12345). Underlying error: {exc}"
+            ) from exc
+        return self._frame_id
+
+    def get_categories(self) -> list[dict]:
+        data = self._request("GET", f"/api/frames/{self.frame_id}/categories")["data"]
+        return [
+            {
+                "id": item["id"],
+                "label": item["attributes"].get("label"),
+                "color": item["attributes"].get("color"),
+            }
+            for item in data
+        ]

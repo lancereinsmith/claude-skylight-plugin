@@ -101,3 +101,58 @@ def test_request_error_surfaces_status_and_body():
     client = core.SkylightClient()
     with pytest.raises(core.SkylightError, match="500.*internal splat"):
         client._request("GET", "/api/ping")
+
+
+@respx.mock
+def test_frame_id_from_env():
+    login_route()
+    client = core.SkylightClient()
+    assert client.frame_id == "42"
+
+
+@respx.mock
+def test_frame_id_discovered(monkeypatch):
+    monkeypatch.delenv("SKYLIGHT_FRAME_ID")
+    login_route()
+    respx.get(f"{BASE}/api/frames").mock(
+        return_value=httpx.Response(
+            200, json={"data": [{"id": "777", "type": "frame", "attributes": {"name": "Kitchen"}}]}
+        )
+    )
+    client = core.SkylightClient()
+    assert client.frame_id == "777"
+    assert client.frame_id == "777"  # cached — respx would fail on a second unmocked call
+
+
+@respx.mock
+def test_frame_id_discovery_failure_explains_env_var(monkeypatch):
+    monkeypatch.delenv("SKYLIGHT_FRAME_ID")
+    login_route()
+    respx.get(f"{BASE}/api/frames").mock(return_value=httpx.Response(404, text="nope"))
+    client = core.SkylightClient()
+    with pytest.raises(core.SkylightError, match="SKYLIGHT_FRAME_ID"):
+        _ = client.frame_id
+
+
+CATEGORIES_JSON = {
+    "data": [
+        {"id": "111", "type": "category",
+         "attributes": {"id": 111, "label": "Lance", "color": "#CB434C"}},
+        {"id": "222", "type": "category",
+         "attributes": {"id": 222, "label": "Family", "color": "#3B82F6"}},
+    ]
+}
+
+
+@respx.mock
+def test_get_categories():
+    login_route()
+    respx.get(f"{BASE}/api/frames/42/categories").mock(
+        return_value=httpx.Response(200, json=CATEGORIES_JSON)
+    )
+    client = core.SkylightClient()
+    cats = client.get_categories()
+    assert cats == [
+        {"id": "111", "label": "Lance", "color": "#CB434C"},
+        {"id": "222", "label": "Family", "color": "#3B82F6"},
+    ]
