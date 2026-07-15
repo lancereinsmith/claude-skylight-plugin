@@ -344,3 +344,35 @@ def test_create_event_rejects_bad_datetime():
     client = core.SkylightClient()
     with pytest.raises(core.SkylightError, match="Could not parse"):
         client.create_event("Bad", "next tuesday-ish")
+
+
+@respx.mock
+def test_delete_event_calls_endpoint():
+    login_route()
+    route = respx.delete(f"{BASE}/api/frames/42/calendar_events/999").mock(
+        return_value=httpx.Response(200, json={"data": {"id": "999"}})
+    )
+    client = core.SkylightClient()
+    assert client.delete_event("999") is None
+    assert route.called
+
+
+@respx.mock
+def test_delete_event_tolerates_empty_body():
+    login_route()
+    respx.delete(f"{BASE}/api/frames/42/calendar_events/999").mock(
+        return_value=httpx.Response(204)
+    )
+    client = core.SkylightClient()
+    assert client.delete_event("999") is None
+
+
+@respx.mock
+def test_delete_event_raises_on_api_error():
+    login_route()
+    respx.delete(f"{BASE}/api/frames/42/calendar_events/999").mock(
+        return_value=httpx.Response(404, text="not found")
+    )
+    client = core.SkylightClient()
+    with pytest.raises(core.SkylightError, match=r"failed \(404\)"):
+        client.delete_event("999")

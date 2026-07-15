@@ -77,6 +77,20 @@ def list_events(date_min: str | None = None, date_max: str | None = None) -> str
 
 
 @mcp.tool()
+def delete_event(event_id: str) -> str:
+    """Delete an event from the Skylight Calendar frame.
+
+    Args:
+        event_id: The event's ID, as returned by list_events or create_event.
+    """
+    try:
+        _get_client().delete_event(event_id)
+        return f"Deleted event {event_id}."
+    except Exception as exc:
+        return f"Error deleting event: {exc}"
+
+
+@mcp.tool()
 def get_categories() -> str:
     """List the frame's categories (family members) with IDs and colors.
 

@@ -283,7 +283,7 @@ class SkylightClient:
             "Skylight-Api-Version": API_VERSION,
         }
 
-    def _request(self, method: str, path: str, **kwargs) -> dict:
+    def _request_raw(self, method: str, path: str, **kwargs) -> httpx.Response:
         extra_headers = kwargs.pop("headers", {})
         resp = self._http.request(
             method, path, headers={**self._auth_header(), **extra_headers}, **kwargs
@@ -297,7 +297,10 @@ class SkylightClient:
             raise SkylightError(
                 f"{method} {path} failed ({resp.status_code}): {resp.text[:300]}"
             )
-        return resp.json()
+        return resp
+
+    def _request(self, method: str, path: str, **kwargs) -> dict:
+        return self._request_raw(method, path, **kwargs).json()
 
     # -- frame + categories ----------------------------------------------
 
@@ -407,3 +410,13 @@ class SkylightClient:
             if inc.get("type") == "category"
         }
         return _parse_event(payload["data"], cat_lookup)
+
+    def delete_event(self, event_id: str) -> None:
+        """Delete a calendar event by its ID (from list_events / create_event).
+
+        Raises:
+            SkylightError: If the event does not exist or the API errors.
+        """
+        self._request_raw(
+            "DELETE", f"/api/frames/{self.frame_id}/calendar_events/{event_id}"
+        )
