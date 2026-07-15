@@ -156,3 +156,68 @@ def test_get_categories():
         {"id": "111", "label": "Lance", "color": "#CB434C"},
         {"id": "222", "label": "Family", "color": "#3B82F6"},
     ]
+
+
+EVENTS_JSON = {
+    "data": [
+        {
+            "id": "5355662012-1767018600",
+            "type": "calendar_event",
+            "attributes": {
+                "summary": "Soccer practice",
+                "starts_at": "2026-07-21 17:00:00-05:00",
+                "ends_at": "2026-07-21 18:00:00-05:00",
+                "all_day": False,
+                "location": "Field 3",
+                "description": None,
+                "recurring": True,
+                "rrule": ["RRULE:FREQ=WEEKLY;BYDAY=TU"],
+                "source": "google",
+                "status": "approved",
+            },
+            "relationships": {
+                "categories": {"data": [{"id": "111", "type": "category"}]},
+            },
+        }
+    ],
+    "included": [
+        {"id": "111", "type": "category",
+         "attributes": {"id": 111, "label": "Lance", "color": "#CB434C"}},
+    ],
+}
+
+
+@respx.mock
+def test_list_events_parses_and_resolves_categories():
+    login_route()
+    route = respx.get(f"{BASE}/api/frames/42/calendar_events").mock(
+        return_value=httpx.Response(200, json=EVENTS_JSON)
+    )
+    client = core.SkylightClient()
+    events = client.list_events("2026-07-20", "2026-07-27")
+    params = dict(httpx.URL(str(route.calls.last.request.url)).params)
+    assert params["date_min"] == "2026-07-20"
+    assert params["date_max"] == "2026-07-27"
+    assert params["timezone"] == "America/Chicago"
+    assert len(events) == 1
+    ev = events[0]
+    assert ev["summary"] == "Soccer practice"
+    assert ev["categories"] == ["Lance"]
+    assert ev["starts_at"] == "2026-07-21 17:00:00-05:00"
+    assert ev["rrule"] == ["RRULE:FREQ=WEEKLY;BYDAY=TU"]
+
+
+@respx.mock
+def test_list_events_defaults_to_next_seven_days():
+    login_route()
+    route = respx.get(f"{BASE}/api/frames/42/calendar_events").mock(
+        return_value=httpx.Response(200, json={"data": []})
+    )
+    client = core.SkylightClient()
+    assert client.list_events() == []
+    params = dict(httpx.URL(str(route.calls.last.request.url)).params)
+    from datetime import datetime, timedelta
+
+    today = datetime.now(client.tz).date()
+    assert params["date_min"] == today.isoformat()
+    assert params["date_max"] == (today + timedelta(days=7)).isoformat()

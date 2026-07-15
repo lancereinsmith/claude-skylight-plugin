@@ -19,6 +19,32 @@ class SkylightError(RuntimeError):
     """Raised for auth/config problems and non-2xx API responses."""
 
 
+def _parse_event(item: dict, cat_lookup: dict[str, str]) -> dict:
+    attrs = item.get("attributes", {})
+    rels = item.get("relationships", {})
+    cat_refs = []
+    for key in ("categories", "category"):
+        data = (rels.get(key) or {}).get("data")
+        if isinstance(data, list):
+            cat_refs += [d["id"] for d in data]
+        elif isinstance(data, dict):
+            cat_refs.append(data["id"])
+    return {
+        "id": item.get("id"),
+        "summary": attrs.get("summary"),
+        "starts_at": attrs.get("starts_at"),
+        "ends_at": attrs.get("ends_at"),
+        "all_day": attrs.get("all_day"),
+        "location": attrs.get("location"),
+        "description": attrs.get("description"),
+        "recurring": attrs.get("recurring"),
+        "rrule": attrs.get("rrule"),
+        "source": attrs.get("source"),
+        "status": attrs.get("status"),
+        "categories": [cat_lookup.get(cid, cid) for cid in cat_refs],
+    }
+
+
 def _env(name: str) -> str:
     return os.environ.get(name, "").strip()
 
@@ -108,3 +134,25 @@ class SkylightClient:
             }
             for item in data
         ]
+
+    # -- events -----------------------------------------------------------
+
+    def list_events(
+        self, date_min: str | None = None, date_max: str | None = None
+    ) -> list[dict]:
+        today = datetime.now(self.tz).date()
+        params = {
+            "date_min": date_min or today.isoformat(),
+            "date_max": date_max or (today + timedelta(days=7)).isoformat(),
+            "timezone": str(self.tz),
+            "include": "categories",
+        }
+        payload = self._request(
+            "GET", f"/api/frames/{self.frame_id}/calendar_events", params=params
+        )
+        cat_lookup = {
+            inc["id"]: inc["attributes"].get("label")
+            for inc in payload.get("included", [])
+            if inc.get("type") == "category"
+        }
+        return [_parse_event(item, cat_lookup) for item in payload.get("data", [])]
