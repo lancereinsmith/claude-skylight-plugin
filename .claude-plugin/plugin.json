@@ -1,0 +1,11 @@
+{
+  "name": "skylight",
+  "version": "0.1.0",
+  "description": "Add and read events on a Skylight Calendar frame via the unofficial Skylight API.",
+  "author": {
+    "name": "Lance Reinsmith"
+  },
+  "repository": "https://github.com/lancereinsmith/claude-skylight-plugin",
+  "license": "MIT",
+  "mcpServers": "./.mcp.json"
+}

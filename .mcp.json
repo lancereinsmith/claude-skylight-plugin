@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "skylight": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/lancereinsmith/claude-skylight-plugin",
+        "claude-skylight-plugin"
+      ]
+    }
+  }
+}
