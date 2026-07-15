@@ -262,12 +262,13 @@ def test_list_events_defaults_to_next_seven_days():
     assert params["date_max"] == (today + timedelta(days=8)).isoformat()
 
 
-@respx.mock
 def test_list_events_rejects_bad_date():
-    login_route()
+    # Validation short-circuits before any HTTP call, so no mocking is needed.
     client = core.SkylightClient()
     with pytest.raises(core.SkylightError, match="Could not parse date"):
         client.list_events("2026-07-20", "not-a-date")
+    with pytest.raises(core.SkylightError, match="Could not parse date"):
+        client.list_events("not-a-date", "2026-07-27")
 
 
 def created_event_response():

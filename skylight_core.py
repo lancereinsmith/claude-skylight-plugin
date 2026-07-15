@@ -77,6 +77,16 @@ def _parse_event(item: dict, cat_lookup: dict[str, str]) -> dict:
     }
 
 
+def _parse_date(value: str) -> date:
+    """Parse a YYYY-MM-DD date string, raising SkylightError on bad input."""
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise SkylightError(
+            f"Could not parse date {value!r}: use YYYY-MM-DD."
+        ) from exc
+
+
 def _parse_when(value: str, tz: ZoneInfo) -> datetime:
     """Parse an ISO 8601 date/datetime; naive values are local to tz."""
     try:
@@ -332,20 +342,15 @@ class SkylightClient:
             List of events with id, summary, times, categories, etc.
 
         Raises:
-            SkylightError: If date_max cannot be parsed, or on API errors.
+            SkylightError: If date_min/date_max cannot be parsed, or on API errors.
         """
         today = datetime.now(self.tz).date()
-        start = date_min or today.isoformat()
-        end_incl = date_max or (today + timedelta(days=7)).isoformat()
-        try:
-            end_excl = (date.fromisoformat(end_incl) + timedelta(days=1)).isoformat()
-        except ValueError as exc:
-            raise SkylightError(
-                f"Could not parse date {end_incl!r}: use YYYY-MM-DD."
-            ) from exc
+        start = _parse_date(date_min) if date_min else today
+        end_incl = _parse_date(date_max) if date_max else today + timedelta(days=7)
+        end_excl = end_incl + timedelta(days=1)
         params = {
-            "date_min": start,
-            "date_max": end_excl,  # API treats date_max as exclusive (verified live)
+            "date_min": start.isoformat(),
+            "date_max": end_excl.isoformat(),  # API treats date_max as exclusive (verified live)
             "timezone": str(self.tz),
             "include": "categories",
         }
