@@ -23,6 +23,6 @@ Recurring events take an RRULE string, e.g. "RRULE:FREQ=WEEKLY;BYDAY=TU".
 ## Authentication
 
 Handled by env vars: SKYLIGHT_EMAIL, SKYLIGHT_PASSWORD, optional SKYLIGHT_FRAME_ID,
-SKYLIGHT_TIMEZONE, SKYLIGHT_AUTH_SCHEME. If tools fail with a credential error, ask
+SKYLIGHT_TIMEZONE. If tools fail with a credential error, ask
 the user to check those. This is an unofficial API — surface unexpected errors
 verbatim rather than retrying blindly.

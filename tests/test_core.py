@@ -1,6 +1,5 @@
 """Tests for skylight_core.SkylightClient (all HTTP mocked with respx)."""
 
-import base64
 import json as jsonlib
 
 import httpx
@@ -11,6 +10,8 @@ import skylight_core as core
 
 BASE = core.BASE_URL
 
+LOGIN_FORM_HTML = '<form><input type="hidden" name="authenticity_token" value="csrf123"></form>'
+
 
 @pytest.fixture(autouse=True)
 def creds(monkeypatch):
@@ -18,26 +19,55 @@ def creds(monkeypatch):
     monkeypatch.setenv("SKYLIGHT_PASSWORD", "hunter2")
     monkeypatch.setenv("SKYLIGHT_FRAME_ID", "42")
     monkeypatch.delenv("SKYLIGHT_TIMEZONE", raising=False)
-    monkeypatch.delenv("SKYLIGHT_AUTH_SCHEME", raising=False)
+    monkeypatch.setattr(core, "_new_state", lambda: "st4t3fixed")
 
 
-def login_route(token="tok123"):
-    return respx.post(f"{BASE}/api/sessions").mock(
+def login_route(token="tok123", final_state="st4t3fixed"):
+    """Mock all five OAuth flow steps; return the token-exchange route."""
+    respx.get(f"{BASE}/oauth/authorize", params__contains={"prompt": "login"}).mock(
         return_value=httpx.Response(
-            200,
-            json={"data": {"id": "1", "type": "authenticated_user",
-                           "attributes": {"email": "lance@example.com", "token": token}}},
+            302, headers={"location": f"{BASE}/auth/session/new?login_challenge=abc"}
+        )
+    )
+    respx.get(f"{BASE}/auth/session/new").mock(
+        return_value=httpx.Response(200, text=LOGIN_FORM_HTML)
+    )
+    respx.post(f"{BASE}/auth/session").mock(
+        return_value=httpx.Response(
+            302, headers={"location": f"{BASE}/oauth/authorize?resume=1"}
+        )
+    )
+    respx.get(f"{BASE}/oauth/authorize", params__contains={"resume": "1"}).mock(
+        return_value=httpx.Response(
+            302,
+            headers={
+                "location": f"https://ourskylight.com/welcome?code=authcode1&state={final_state}"
+            },
+        )
+    )
+    return respx.post(f"{BASE}/oauth/token").mock(
+        return_value=httpx.Response(
+            200, json={"access_token": token, "refresh_token": "r1", "expires_in": 604800}
         )
     )
 
 
 @respx.mock
 def test_login_returns_token():
-    route = login_route()
+    token_route = login_route()
     client = core.SkylightClient()
     assert client.login() == "tok123"
-    body = route.calls.last.request.content
-    assert b"lance@example.com" in body and b"hunter2" in body
+
+    session_call = next(c for c in respx.calls if c.request.url.path == "/auth/session")
+    session_body = session_call.request.content
+    assert b"lance%40example.com" in session_body
+    assert b"hunter2" in session_body
+    assert b"csrf123" in session_body
+
+    token_body = token_route.calls.last.request.content
+    assert b"grant_type=authorization_code" in token_body
+    assert b"code=authcode1" in token_body
+    assert b"code_verifier=" in token_body
 
 
 def test_missing_credentials_raise(monkeypatch):
@@ -47,37 +77,44 @@ def test_missing_credentials_raise(monkeypatch):
 
 
 @respx.mock
-def test_login_failure_raises():
-    respx.post(f"{BASE}/api/sessions").mock(
-        return_value=httpx.Response(401, json={"error": "bad credentials"})
-    )
+def test_login_state_mismatch_raises():
+    login_route(final_state="wrongstate")
     client = core.SkylightClient()
-    with pytest.raises(core.SkylightError, match="401"):
+    with pytest.raises(core.SkylightError, match="state"):
         client.login()
 
 
 @respx.mock
-def test_request_sends_basic_auth_header():
+def test_login_failure_raises():
+    respx.get(f"{BASE}/oauth/authorize", params__contains={"prompt": "login"}).mock(
+        return_value=httpx.Response(
+            302, headers={"location": f"{BASE}/auth/session/new?login_challenge=abc"}
+        )
+    )
+    respx.get(f"{BASE}/auth/session/new").mock(
+        return_value=httpx.Response(200, text=LOGIN_FORM_HTML)
+    )
+    # Bad credentials: Skylight re-renders the login form instead of redirecting.
+    respx.post(f"{BASE}/auth/session").mock(
+        return_value=httpx.Response(200, text=LOGIN_FORM_HTML)
+    )
+    client = core.SkylightClient()
+    with pytest.raises(core.SkylightError, match="SKYLIGHT_EMAIL.*SKYLIGHT_PASSWORD"):
+        client.login()
+
+
+@respx.mock
+def test_request_sends_bearer_and_version_headers():
     login_route()
-    expected = base64.b64encode(b"tok123").decode()
     route = respx.get(f"{BASE}/api/ping").mock(
         return_value=httpx.Response(200, json={"ok": True})
     )
     client = core.SkylightClient()
     assert client._request("GET", "/api/ping") == {"ok": True}
-    assert route.calls.last.request.headers["Authorization"] == f"Basic {expected}"
-
-
-@respx.mock
-def test_request_bearer_scheme(monkeypatch):
-    monkeypatch.setenv("SKYLIGHT_AUTH_SCHEME", "bearer")
-    login_route()
-    route = respx.get(f"{BASE}/api/ping").mock(
-        return_value=httpx.Response(200, json={"ok": True})
-    )
-    client = core.SkylightClient()
-    client._request("GET", "/api/ping")
-    assert route.calls.last.request.headers["Authorization"] == "Bearer tok123"
+    headers = route.calls.last.request.headers
+    assert headers["Authorization"] == "Bearer tok123"
+    assert headers["Skylight-Api-Version"] == "2026-03-01"
+    assert headers["User-Agent"] == "SkylightMobile (web)"
 
 
 @respx.mock

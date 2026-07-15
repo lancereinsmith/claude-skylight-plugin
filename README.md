@@ -19,7 +19,11 @@ and [TheEagleByte/skylight-api](https://github.com/TheEagleByte/skylight-api)).
 | `SKYLIGHT_PASSWORD` | yes | |
 | `SKYLIGHT_FRAME_ID` | no | auto-discovered when possible; else copy from the web app URL |
 | `SKYLIGHT_TIMEZONE` | no | default `America/Chicago` |
-| `SKYLIGHT_AUTH_SCHEME` | no | `basic` (default) or `bearer` |
+
+Auth is a headless replay of Skylight's own web OAuth 2.0 (Authorization
+Code + PKCE) login flow — email/password are still the only inputs required;
+the plugin drives the same browser-facing endpoints the web app uses and
+exchanges the result for a bearer token.
 
 ## Install (Claude Code)
 

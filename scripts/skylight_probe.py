@@ -1,7 +1,7 @@
 """Live probe for the unofficial Skylight API. Requires real credentials.
 
 Usage (reads SKYLIGHT_EMAIL / SKYLIGHT_PASSWORD from the environment):
-    uv run python scripts/skylight_probe.py auth        # test basic vs bearer
+    uv run python scripts/skylight_probe.py auth        # run OAuth login + one authenticated call
     uv run python scripts/skylight_probe.py frames      # try frame discovery
     uv run python scripts/skylight_probe.py categories
     uv run python scripts/skylight_probe.py events [date_min] [date_max]
@@ -30,13 +30,8 @@ def main() -> None:
     if cmd == "auth":
         token = client.login()
         print(f"Login OK. Token length: {len(token)} (not printed).")
-        for scheme in ("basic", "bearer"):
-            client.auth_scheme = scheme
-            try:
-                client._request("GET", f"/api/frames/{client.frame_id}/categories")
-                print(f"  {scheme}: WORKS")
-            except core.SkylightError as exc:
-                print(f"  {scheme}: FAILED — {exc}")
+        client._request("GET", f"/api/frames/{client.frame_id}/categories")
+        print("authenticated API call: OK")
     elif cmd == "frames":
         print(f"frame_id resolves to: {client.frame_id}")
     elif cmd == "categories":
