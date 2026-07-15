@@ -1,9 +1,29 @@
+# Python
 __pycache__/
-*.pyc
+*.py[codz]
+*.so
+
+# Environments
 .venv/
 .env
-.pytest_cache/
+.envrc
+
+# Packaging
+build/
 dist/
+*.egg-info/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# macOS
 .DS_Store
+
+# Local scratch (session ledgers, design docs kept out of the public repo)
 .superpowers
-docs/superpowers/docs/superpowers/
+docs/superpowers/
