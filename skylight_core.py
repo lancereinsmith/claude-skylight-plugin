@@ -10,7 +10,7 @@ import hashlib
 import os
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -322,10 +322,30 @@ class SkylightClient:
     def list_events(
         self, date_min: str | None = None, date_max: str | None = None
     ) -> list[dict]:
+        """List events in a date range.
+
+        Args:
+            date_min: Start date YYYY-MM-DD. Defaults to today.
+            date_max: End date YYYY-MM-DD, inclusive. Defaults to today + 7 days.
+
+        Returns:
+            List of events with id, summary, times, categories, etc.
+
+        Raises:
+            SkylightError: If date_max cannot be parsed, or on API errors.
+        """
         today = datetime.now(self.tz).date()
+        start = date_min or today.isoformat()
+        end_incl = date_max or (today + timedelta(days=7)).isoformat()
+        try:
+            end_excl = (date.fromisoformat(end_incl) + timedelta(days=1)).isoformat()
+        except ValueError as exc:
+            raise SkylightError(
+                f"Could not parse date {end_incl!r}: use YYYY-MM-DD."
+            ) from exc
         params = {
-            "date_min": date_min or today.isoformat(),
-            "date_max": date_max or (today + timedelta(days=7)).isoformat(),
+            "date_min": start,
+            "date_max": end_excl,  # API treats date_max as exclusive (verified live)
             "timezone": str(self.tz),
             "include": "categories",
         }

@@ -235,7 +235,7 @@ def test_list_events_parses_and_resolves_categories():
     events = client.list_events("2026-07-20", "2026-07-27")
     params = dict(httpx.URL(str(route.calls.last.request.url)).params)
     assert params["date_min"] == "2026-07-20"
-    assert params["date_max"] == "2026-07-27"
+    assert params["date_max"] == "2026-07-28"
     assert params["timezone"] == "America/Chicago"
     assert params["include"] == "categories"
     assert len(events) == 1
@@ -259,7 +259,15 @@ def test_list_events_defaults_to_next_seven_days():
 
     today = datetime.now(client.tz).date()
     assert params["date_min"] == today.isoformat()
-    assert params["date_max"] == (today + timedelta(days=7)).isoformat()
+    assert params["date_max"] == (today + timedelta(days=8)).isoformat()
+
+
+@respx.mock
+def test_list_events_rejects_bad_date():
+    login_route()
+    client = core.SkylightClient()
+    with pytest.raises(core.SkylightError, match="Could not parse date"):
+        client.list_events("2026-07-20", "not-a-date")
 
 
 def created_event_response():

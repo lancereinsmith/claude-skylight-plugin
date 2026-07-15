@@ -68,7 +68,7 @@ def list_events(date_min: str | None = None, date_max: str | None = None) -> str
 
     Args:
         date_min: Start date YYYY-MM-DD. Defaults to today.
-        date_max: End date YYYY-MM-DD. Defaults to today + 7 days.
+        date_max: End date YYYY-MM-DD, inclusive. Defaults to today + 7 days.
     """
     try:
         return json.dumps(_get_client().list_events(date_min, date_max), indent=2)

@@ -76,7 +76,9 @@ Base URL: `https://app.ourskylight.com`
   with `date_min`, `date_max` (YYYY-MM-DD), `timezone`, and
   `include=categories,calendar_account`. JSON:API response; each event has
   `summary`, `starts_at`/`ends_at` (offset datetimes), `all_day`, `location`,
-  `rrule`, `recurring`, `source`, and category relationships.
+  `rrule`, `recurring`, `source`, and category relationships. `date_max` is
+  exclusive on the wire (verified live 2026-07-15); the client accepts an
+  inclusive end date and adds one day.
 - **Create event** — `POST /api/frames/{frame_id}/calendar_events` with a flat
   JSON body:
   ```json
